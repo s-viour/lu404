@@ -3,3 +3,4 @@ project(lu404)
 
 
 add_executable(lu404 src/main.cpp)
+set_target_properties(lu404 PROPERTIES CXX_STANDARD 17)

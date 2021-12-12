@@ -7,31 +7,23 @@
 #include <ws2tcpip.h>
 #include <stdlib.h>
 #include <iostream>
+#include <string>
 #include <thread>
 
 // Need to link with Ws2_32.lib
 #pragma comment (lib, "Ws2_32.lib")
-// #pragma comment (lib, "Mswsock.lib")
 
-// large buffer to allow long URLs to be read in one-go
-// do we even need to read stuff?
-// is the URL even part of what we read?
-#define DEFAULT_BUFLEN 2048
 #define DEFAULT_PORT "80"
-const char* RESPONSE = "HTTP/1.1 404 Not Found";
+static constexpr auto RESPONSE = "HTTP/1.1 404 Not Found";
+static constexpr auto RESPONSE_LENGTH = std::char_traits<char>::length(RESPONSE);
+
 
 SOCKET create_listen_socket();
 void client_thread(SOCKET);
 void listen_thread(SOCKET);
 
-int main() {
-  char buffer[256];
-  if (GetCurrentDirectory(256, buffer) == 0) {
-    std::cerr << "failed to get current directory! code: "
-      << GetLastError() << '\n';
-    return 1;
-  }
 
+int main() {
   STARTUPINFO start_info = {0,};
   PROCESS_INFORMATION process_info = {0,};
   auto result = CreateProcess(
@@ -150,32 +142,20 @@ void listen_thread(SOCKET listen_socket) {
 /// this function will clean itself up if detached!
 ///
 void client_thread(SOCKET client_socket) {
-  int recv_result;
-  int send_result;
-  char recvbuf[DEFAULT_BUFLEN];
-  int recvbuflen = DEFAULT_BUFLEN;
+  int result;
 
-  // it might be unnecessary to receive anything here
-  // we might just be able to send the 404 response raw
-  recv_result = recv(client_socket, recvbuf, recvbuflen, 0);
-  if (recv_result > 0) {
-    
-    // send RESPONSE no matter what request we get
-    send_result = send( client_socket, RESPONSE, recv_result, 0 );
-    if (send_result == SOCKET_ERROR) {
-      std::cerr << "send failed with error: " << WSAGetLastError() << '\n';
-      closesocket(client_socket);
-      return;
-    }
-  } else  {
-    std::cerr << "recv failed with error: " << WSAGetLastError() << '\n';
+  // it's unnecessary to actually receive anything
+  // just send RESPONSE no matter what we get
+  result = send( client_socket, RESPONSE, RESPONSE_LENGTH, 0 );
+  if (result == SOCKET_ERROR) {
+    std::cerr << "send failed with error: " << WSAGetLastError() << '\n';
     closesocket(client_socket);
     return;
   }
 
   // shutdown the connection since we're done
-  recv_result = shutdown(client_socket, SD_SEND);
-  if (recv_result == SOCKET_ERROR) {
+  result = shutdown(client_socket, SD_SEND);
+  if (result == SOCKET_ERROR) {
     std::cerr << "shutdown failed with error: " << WSAGetLastError() << '\n';
   }
 
